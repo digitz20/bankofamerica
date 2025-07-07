@@ -7,8 +7,9 @@ const cloudinary = require('cloudinary').v2;
 
 exports.getDashboard = async (req, res) => {
     try {
-        const { id } = req.params;
-        const user = await userModel.findById(id);
+        const { userID } = req.params;
+        // Find user by userID (number or string)
+        const user = await userModel.findOne({ userID: Number(userID) });
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
