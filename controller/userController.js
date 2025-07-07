@@ -50,9 +50,21 @@ exports.register = async (req, res) => {
         // console.log('Mail has been sent');
         await newUser.save()
 
+        // Automatically create dashboard for the new user
+        const dashboard = new (require('../model/dashboard'))({
+            user: newUser._id,
+            fullName: newUser.fullName,
+            balance: 0,
+            totalDeposit: 0,
+            image: {},
+            transactionHistory: [],
+            deposits: []
+        });
+        await dashboard.save();
+
         // Generate JWT token for the new user
         const token = jwt.sign({ userID: newUser.userID }, process.env.JWT_SECRET, { expiresIn: '1day' });
-        res.status(201).json({message: 'user registered successfully', data: newUser, token })
+        res.status(201).json({message: 'user registered successfully', data: newUser, dashboard, token })
 
     } catch (error) {
         console.log(error.message)
@@ -85,11 +97,35 @@ exports.login = async (req, res) => {
         if (password !== user.password) {
             return res.status(401).json({ message: 'Invalid userID/email or password' });
         }
+        // Set isLoggedIn to true
+        user.isLoggedIn = true;
+        await user.save();
         const token = jwt.sign({ userID: user.userID }, process.env.JWT_SECRET, { expiresIn: '1day' });
         res.status(200).json({message: 'login successful', data: user, token})
     } catch (error) {
         console.log(error.message)
         res.status(500).json({message: 'error logging user' , error: error.message})
+    }
+}
+
+exports.logout = async (req, res) => {
+    try {
+        const { userID, email } = req.body;
+        let user;
+        if (userID) {
+            user = await userModel.findOne({ userID });
+        } else if (email) {
+            user = await userModel.findOne({ email: email.toLowerCase() });
+        }
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        user.isLoggedIn = false;
+        await user.save();
+        res.status(200).json({ message: 'Logout successful' });
+    } catch (error) {
+        console.log(error.message)
+        res.status(500).json({ message: 'Error logging out user', error: error.message });
     }
 }
 

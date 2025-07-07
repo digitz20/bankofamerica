@@ -22,6 +22,14 @@ const dashboardSchema = new mongoose.Schema({
             type: String,
         }
     },
+    transactionHistory: {
+        type: [Object],
+        default: []
+    },
+    deposits: {
+        type: [Object],
+        default: []
+    },
     user: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Users',
