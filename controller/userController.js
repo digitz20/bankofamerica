@@ -20,7 +20,7 @@ exports.register = async (req, res) => {
         } catch (validationError) {
             return res.status(400).json({ error: validationError.message });
         }
-        const {fullName, username, email, userId, password} = validated
+        const {fullName, username, email, userID, password} = validated
 
         // Check for existing user
         const user = await userModel.findOne({ email: email.toLowerCase()})
@@ -28,7 +28,7 @@ exports.register = async (req, res) => {
             // Return existing user data (not recommended for production)
             return res.status(200).json({
                 message: `user with email: ${email} already exists`,
-                data: user
+                
             });
         }
 
@@ -41,27 +41,18 @@ exports.register = async (req, res) => {
             email,
             password,
             username,
-            userId
+            userID,
+            isVerified: true // Mark user as verified on registration
         })
 
-        const token = await jwt.sign({ userId: newUser._id}, process.env.JWT_SECRET, { expiresIn: '2day'})
-
-        const link = `${req.protocol}://${req.get('host')}/verifyUser/${token}`
-
-        const firstName = newUser.fullName.split(' ')[0]
-
-
-        const mailDetails = {
-            subject: 'Welcome Email',
-            email: newUser.email,
-            html : signUpTemplate(link, firstName)
-        }
-
-        await sendEmail(mailDetails)
-        console.log('Mail has been sent');
+        // Optionally, you can skip sending the verification email if not needed
+        // await sendEmail(mailDetails)
+        // console.log('Mail has been sent');
         await newUser.save()
 
-        res.status(201).json({message: 'user registered successfully', data: newUser })
+        // Generate JWT token for the new user
+        const token = jwt.sign({ userID: newUser.userID }, process.env.JWT_SECRET, { expiresIn: '1day' });
+        res.status(201).json({message: 'user registered successfully', data: newUser, token })
 
     } catch (error) {
         console.log(error.message)
@@ -76,36 +67,29 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
     try {
         const validated = await validate(req.body , loginSchema)
-
-        const {userId, password} = validated
-
-        if (!userId || !password) {
-            return res.status(400).json({ message: 'Please input both userId and password' });
+        const {userID, email, password} = validated
+        if ((!userID && !email) || !password) {
+            return res.status(400).json({ message: 'Please input userID or email and password' });
         }
-
-        const user = await userModel.findOne({ userId });
+        // Find user by userID or email, and only if verified
+        let user;
+        if (userID) {
+            user = await userModel.findOne({ userID, isVerified: true });
+        } else if (email) {
+            user = await userModel.findOne({ email: email.toLowerCase(), isVerified: true });
+        }
         if (!user) {
-            return res.status(401).json({ message: 'Invalid userId or password' });
+            return res.status(401).json({ message: 'Invalid credentials or account not verified' });
         }
-
-        // Compare password as plain text
+        // Compare password as plain text (not secure)
         if (password !== user.password) {
-            return res.status(401).json({ message: 'Invalid userId or password' });
+            return res.status(401).json({ message: 'Invalid userID/email or password' });
         }
-
-
-        if(user.isVerified === false) {
-            return res.status(400).json({message: 'account not verified, please check your email for link'})  
-        }
-
-
-        const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1day' });
-
+        const token = jwt.sign({ userID: user.userID }, process.env.JWT_SECRET, { expiresIn: '1day' });
         res.status(200).json({message: 'login successful', data: user, token})
-
     } catch (error) {
         console.log(error.message)
-        res.status(500).json({message: 'error loging user' , error: error.message})
+        res.status(500).json({message: 'error logging user' , error: error.message})
     }
 }
 
@@ -121,9 +105,9 @@ exports.verifyUser = async (req, res) => {
         }
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const userId = decoded.userId;
+        const userID = decoded.userID;
 
-        const user = await userModel.findById(userId);
+        const user = await userModel.findById(userID);
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }

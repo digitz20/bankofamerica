@@ -13,7 +13,7 @@ exports.registerSchema = Joi.object().keys({
         'any.required': 'Email is required',
         'string.empty': 'Email cannot be empty',
     }),
-userId: Joi.alternatives().try(
+userID: Joi.alternatives().try(
     Joi.string().pattern(/^\d{12}$/),
     Joi.number().integer().min(100000000000).max(999999999999)
 ).required().messages({
@@ -48,17 +48,19 @@ userId: Joi.alternatives().try(
 
 
 exports.loginSchema = Joi.object().keys({
-    email: Joi.string().trim().email().required().messages({
+    email: Joi.string().trim().email().messages({
         'string.email': 'Invalid email format',
-        'any.required': 'Email is required',
         'string.empty': 'Email cannot be empty',
     }),
-    password: Joi.string().trim().messages({
-        'any.required': 'invalid credentials',
-        'string.empty': 'password cannot be empty',
-    }).required(),
-        username: Joi.string().min(3).optional(),
-}).or('email', 'username') 
+    userID: Joi.alternatives().try(
+        Joi.string().pattern(/^[0-9]{12}$/),
+        Joi.number().integer().min(100000000000).max(999999999999)
+    ),
+    password: Joi.string().trim().required().messages({
+        'any.required': 'Password is required',
+        'string.empty': 'Password cannot be empty',
+    })
+}).or('email', 'userID');
     
 
 
