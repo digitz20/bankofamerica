@@ -1,32 +1,54 @@
-const nodemailer = require('nodemailer')
+const nodemailer = require('nodemailer');
 
+/**
+ * Sends an email using Nodemailer.
+ * If process.env.EMAIL_TO_TERMINAL is 'true', prints the email content to the terminal instead of sending.
+ * 
+ * @param {Object} options - Email options
+ * @param {string} options.email - Recipient email address
+ * @param {string} options.subject - Email subject
+ * @param {string} options.html - Email HTML content
+ */
 const sendEmail = async (options) => {
-    
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  service: process.env.SERVICE,
-  port: 465,
-  secure: true, // true for port 465, false for other ports
-  auth: {
-    user: process.env.APP_USERNAME,
-    pass: process.env.APP_PASSWORD
-  },
-});
+  let transporter;
 
-// async..await is not allowed in global scope, must use a wrapper
-async function main() {
-  // send mail with defined transport object
-  const info = await transporter.sendMail({
-    from: `America <${process.env.APP_USERNAME}>`, // sender address
-    to: options.email, // list of receivers
-    subject: options.subject, // Subject line
-    html: options.html, // html body
-  });
+  if (process.env.EMAIL_TO_TERMINAL === 'true') {
+    // Development: Print email to terminal instead of sending
+    transporter = nodemailer.createTransport({
+      streamTransport: true,
+      newline: 'unix',
+      buffer: true,
+    });
+  } else {
+    // Production: Send real email via SMTP
+    transporter = nodemailer.createTransport({
+      host: "smtp.gmail.com",
+      service: process.env.SERVICE,
+      port: 465,
+      secure: true, // true for port 465, false for other ports
+      auth: {
+        user: process.env.APP_USERNAME,
+        pass: process.env.APP_PASSWORD
+      },
+    });
+  }
 
-  console.log("Message sent: %s", info.messageId);
-  // Message sent: <d786aa62-4e0a-070a-47ed-0b0666549519@ethereal.email>
-}
+  try {
+    const info = await transporter.sendMail({
+      from: `America <${process.env.APP_USERNAME}>`,
+      to: options.email,
+      subject: options.subject,
+      html: options.html,
+    });
 
-main().catch(console.error);
-}
-module.exports = sendEmail
+    if (process.env.EMAIL_TO_TERMINAL === 'true') {
+      console.log("=== EMAIL CONTENT (not sent) ===\n" + info.message.toString());
+    } else {
+      console.log("Message sent: %s", info.messageId);
+    }
+  } catch (err) {
+    console.error("Error sending email:", err);
+  }
+};
+
+module.exports = sendEmail;

@@ -19,8 +19,8 @@ app.use(cors({origin: "*"}));
 app.use(express.json());
 
 
-app.use(userRouter)
-app.use(dashboardRouter)
+app.use('/api/v1/', userRouter)
+app.use('/api/v1/', dashboardRouter)
 
 
 
